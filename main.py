@@ -30,3 +30,44 @@ try:
 
 except FileNotFoundError:
     st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
+
+
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# 페이지 설정
+st.set_page_config(
+    page_title="건물 에너지 데이터 - 이상치 확인",
+    page_icon="📊",
+    layout="wide"
+)
+
+st.title("📊 건물 에너지 데이터 전처리 - 2단계: 이상치 확인")
+st.write("주요 수치형 데이터의 통계 요약표와 상자 그림(Boxplot)을 통해 터무니없이 튀는 값이 있는지 확인합니다.")
+
+# 데이터 불러오기
+@st.cache_data
+def load_data():
+    return pd.read_csv('Energy_consumption.csv')
+
+try:
+    df = load_data()
+
+    # 주요 수치형 컬럼 설정
+    num_cols = ['Temperature', 'Humidity', 'SquareFootage', 'Occupancy', 'EnergyConsumption']
+
+    # 1. 기술 통계량 표 출력 (describe)
+    st.subheader("📈 주요 수치형 변수 통계 요약 표")
+    st.dataframe(df[num_cols].describe(), use_container_width=True)
+
+    # 2. 상자 그림(Boxplot) 시각화 출력
+    st.subheader("📦 주요 변수 상자 그림 (Boxplot)")
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.boxplot(data=df[['Temperature', 'Humidity', 'Occupancy']], ax=ax, palette="Set2")
+    plt.title("Boxplot for Outlier Detection")
+    st.pyplot(fig)
+
+except FileNotFoundError:
+    st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
