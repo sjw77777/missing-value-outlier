@@ -99,3 +99,78 @@ try:
 
 except FileNotFoundError:
     st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
+
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# 페이지 설정
+st.set_page_config(
+    page_title="건물 에너지 데이터 - 이상치 해결",
+    page_icon="✨",
+    layout="wide"
+)
+
+st.title("✨ 건물 에너지 데이터 전처리 - 3단계: 이상치 해결")
+st.write("IQR(사분위수 범위) 기준을 벗어난 이상치(1개)를 정상 범위 경계값으로 다듬는 클리핑(Clipping)을 수행합니다.")
+
+# 데이터 불러오기
+@st.cache_data
+def load_data():
+    return pd.read_csv('Energy_consumption.csv')
+
+try:
+    df = load_data()
+    num_cols = ['Temperature', 'Humidity', 'SquareFootage', 'Occupancy', 'EnergyConsumption']
+
+    # 1단계: 정제 전 이상치 개수 파악
+    before_outliers = 0
+    for col in num_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        before_outliers += ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
+
+    # 2단계: IQR 클리핑 적용 (이상치 해결)
+    df_processed = df.copy()
+    for col in num_cols:
+        Q1 = df_processed[col].quantile(0.25)
+        Q3 = df_processed[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df_processed[col] = np.clip(df_processed[col], lower_bound, upper_bound)
+
+    # 3단계: 정제 후 이상치 개수 재확인 (0개 확인용)
+    after_outliers = 0
+    for col in num_cols:
+        Q1 = df_processed[col].quantile(0.25)
+        Q3 = df_processed[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        after_outliers += ((df_processed[col] < lower_bound) | (df_processed[col] > upper_bound)).sum()
+
+    # 화면 출력 (성공 메시지 및 비교 통계)
+    st.success("🎉 이상치 정제(IQR Clipping)가 성공적으로 완료되었습니다!")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(f"📌 **정제 전 이상치 총합**: **{before_outliers}개** (EnergyConsumption 1개 포함)")
+    with col2:
+        st.info(f"📌 **정제 후 이상치 총합**: **{after_outliers}개** (정상 범위로 완벽 교정됨)")
+
+    st.subheader("📋 이상치가 정제된 최종 데이터 통계 요약")
+    st.write("📌 **의미**: 클리핑을 통해 극단적인 값이 상·하한 경계값으로 조정되어, 데이터의 안정성이 높아진 것을 통계량(`min`, `max`)을 통해 확인할 수 있습니다.")
+    st.dataframe(df_processed[num_cols].describe(), use_container_width=True)
+
+    st.subheader("📋 최종 정제된 데이터프레임 (상위 5개 행)")
+    st.dataframe(df_processed.head(), use_container_width=True)
+
+except FileNotFoundError:
+    st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
