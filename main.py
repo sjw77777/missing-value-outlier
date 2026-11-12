@@ -165,6 +165,22 @@ try:
     with col2:
         st.info(f"📌 **정제 후 이상치 총합**: **{after_outliers}개** (정상 범위로 완벽 교정됨)")
 
+    # 🌟 추가된 기능: 정제된 데이터 파일 다운로드 버튼
+    st.markdown("---")
+    st.subheader("💾 전처리 완료된 데이터 파일 다운로드")
+    st.write("📌 **의미**: 이상치가 정상 범위로 클리핑된 최종 데이터셋을 CSV 파일로 다운로드하여 향후 분석에 활용할 수 있습니다.")
+    
+    # DataFrame을 CSV 문자열로 변환 (한글 깨짐 방지를 위해 utf-8-sig 사용)
+    csv_data = df_processed.to_csv(index=False).encode('utf-8-sig')
+    
+    st.download_button(
+        label="📥 정제된 데이터(Energy_consumption_cleaned.csv) 다운로드",
+        data=csv_data,
+        file_name="Energy_consumption_cleaned.csv",
+        mime="text/csv",
+    )
+    st.markdown("---")
+
     st.subheader("📋 이상치가 정제된 최종 데이터 통계 요약")
     st.write("📌 **의미**: 클리핑을 통해 극단적인 값이 상·하한 경계값으로 조정되어, 데이터의 안정성이 높아진 것을 통계량(`min`, `max`)을 통해 확인할 수 있습니다.")
     st.dataframe(df_processed[num_cols].describe(), use_container_width=True)
