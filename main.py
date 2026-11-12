@@ -45,7 +45,7 @@ st.set_page_config(
 )
 
 st.title("📊 건물 에너지 데이터 전처리 - 2단계: 이상치 확인")
-st.write("주요 수치형 데이터의 통계 요약표와 상자 그림(Boxplot)을 통해 터무니없이 튀는 값이 있는지 확인합니다.")
+st.write("IQR(사분위수 범위) 공식을 사용하여 각 변수별 이상치가 정확히 몇 개인지 수치로 확인합니다.")
 
 # 데이터 불러오기
 @st.cache_data
@@ -54,15 +54,42 @@ def load_data():
 
 try:
     df = load_data()
-
-    # 주요 수치형 컬럼 설정
     num_cols = ['Temperature', 'Humidity', 'SquareFootage', 'Occupancy', 'EnergyConsumption']
 
-    # 1. 기술 통계량 표 출력 (describe)
+    # 1. IQR 기준으로 컬럼별 이상치 개수 정확히 계산하기
+    outlier_counts = {}
+    total_outliers = 0
+
+    for col in num_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        # 정상 범위를 벗어나는 데이터 개수 구하기
+        cond = (df[col] < lower_bound) | (df[col] > upper_bound)
+        cnt = cond.sum()
+        outlier_counts[col] = cnt
+        total_outliers += cnt
+
+    # 표 형태로 변환
+    outlier_df = pd.DataFrame(list(outlier_counts.items()), columns=['컬럼명', '이상치 개수'])
+
+    # 2. 화면 출력 (표 + 안내 박스)
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.subheader("📋 컬럼별 이상치 개수 현황 표")
+        st.dataframe(outlier_df, use_container_width=True)
+    with col2:
+        st.subheader("💡 요약 안내")
+        st.info(f"**전체 데이터 행 수**: {len(df)}개\n\n**총 이상치 개수**: **{total_outliers}개**")
+
+    # 3. 기술 통계량 표 (describe)
     st.subheader("📈 주요 수치형 변수 통계 요약 표")
     st.dataframe(df[num_cols].describe(), use_container_width=True)
 
-    # 2. 상자 그림(Boxplot) 시각화 출력
+    # 4. 상자 그림(Boxplot) 시각화 출력
     st.subheader("📦 주요 변수 상자 그림 (Boxplot)")
     fig, ax = plt.subplots(figsize=(10, 4))
     sns.boxplot(data=df[['Temperature', 'Humidity', 'Occupancy']], ax=ax, palette="Set2")
