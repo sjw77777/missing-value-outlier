@@ -67,13 +67,11 @@ try:
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
         
-        # 정상 범위를 벗어나는 데이터 개수 구하기
         cond = (df[col] < lower_bound) | (df[col] > upper_bound)
         cnt = cond.sum()
         outlier_counts[col] = cnt
         total_outliers += cnt
 
-    # 표 형태로 변환
     outlier_df = pd.DataFrame(list(outlier_counts.items()), columns=['컬럼명', '이상치 개수'])
 
     # 2. 화면 출력 (표 + 안내 박스)
@@ -82,15 +80,18 @@ try:
         st.subheader("📋 컬럼별 이상치 개수 현황 표")
         st.dataframe(outlier_df, use_container_width=True)
     with col2:
-        st.subheader("💡 요약 안내")
-        st.info(f"**전체 데이터 행 수**: {len(df)}개\n\n**총 이상치 개수**: **{total_outliers}개**")
+        st.subheader("💡 분석 의미 해석")
+        st.info(f"**전체 데이터 행 수**: {len(df)}개\n\n**총 이상치 개수**: **{total_outliers}개**\n\n👉 대부분의 데이터가 정제되어 있어 이상치가 거의 없는 안정적인 분포를 보입니다.")
 
     # 3. 기술 통계량 표 (describe)
     st.subheader("📈 주요 수치형 변수 통계 요약 표")
+    st.write("📌 **의미**: 최소값(`min`), 최대값(`max`), 그리고 중간값(`50%`)을 통해 데이터의 전반적인 중심 경향과 퍼져 있는 정도를 파악합니다.")
     st.dataframe(df[num_cols].describe(), use_container_width=True)
 
     # 4. 상자 그림(Boxplot) 시각화 출력
     st.subheader("📦 주요 변수 상자 그림 (Boxplot)")
+    st.write("📌 **의미**: 박스 위아래로 뻗은 수염(Whiskers) 바깥쪽에 독립된 점으로 찍히는 값이 이상치입니다. 현재 그래프에서는 극단적으로 튀는 값 없이 상자 범위 내에 데이터가 잘 밀집해 있음을 시각적으로 확인할 수 있습니다.")
+    
     fig, ax = plt.subplots(figsize=(10, 4))
     sns.boxplot(data=df[['Temperature', 'Humidity', 'Occupancy']], ax=ax, palette="Set2")
     plt.title("Boxplot for Outlier Detection")
