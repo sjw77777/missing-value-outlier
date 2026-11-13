@@ -4,21 +4,19 @@ import pandas as pd
 import seaborn as sns
 import streamlit as st
 
-# 페이지 설정
 st.set_page_config(
-    page_title="건물 에너지 데이터 - 전처리 및 EDA 앱",
+    page_title="건물 에너지 데이터 - 전처리 및 9개 변수 EDA",
     page_icon="🧹",
     layout="wide",
 )
 
-# 한글 폰트 및 마이너스 기호 깨짐 방지
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['axes.unicode_minus'] = False
 
-st.title('🧹 건물 에너지 데이터 전처리 및 탐색적 분석(EDA) 웹앱')
+st.title('🧹 건물 에너지 데이터 전처리 및 독립변수(9개) 전수 EDA 웹앱')
 st.write(
-    '결측치 확인, IQR 이상치 정제, 그리고 독립변수 9개를 선정하기 위한 시각화(산점도,'
-    ' 막대그래프, 히트맵)를 수행합니다.'
+    '결측치 확인, 이상치 정제, 그리고 **독립변수 9개 전체**가 에너지 소비량과'
+    ' 어떤 관계가 있는지 시각화로 철저하게 검증합니다.'
 )
 
 
@@ -29,11 +27,14 @@ def load_data():
 
 try:
   df = load_data()
+
+  # 수치형 5개 (타겟인 EnergyConsumption 제외한 독립변수 4개 + 타겟 1개)
   num_cols = [
       'Temperature',
       'Humidity',
       'SquareFootage',
       'Occupancy',
+      'RenewableEnergy',
       'EnergyConsumption',
   ]
   cat_cols = ['HVACUsage', 'LightingUsage', 'DayOfWeek', 'Holiday']
@@ -58,7 +59,14 @@ try:
   outlier_counts = {}
   total_outliers = 0
 
-  for col in num_cols:
+  for col in [
+      'Temperature',
+      'Humidity',
+      'SquareFootage',
+      'Occupancy',
+      'RenewableEnergy',
+      'EnergyConsumption',
+  ]:
     Q1 = df[col].quantile(0.25)
     Q3 = df[col].quantile(0.75)
     IQR = Q3 - Q1
@@ -81,7 +89,9 @@ try:
   st.subheader('📦 수치형 변수 Boxplot 시각화')
   fig, ax = plt.subplots(figsize=(10, 4))
   sns.boxplot(
-      data=df[['Temperature', 'Humidity', 'Occupancy']], ax=ax, palette='Set2'
+      data=df[['Temperature', 'Humidity', 'Occupancy', 'RenewableEnergy']],
+      ax=ax,
+      palette='Set2',
   )
   st.pyplot(fig)
 
@@ -92,7 +102,14 @@ try:
   # =====================================================================
   st.header('3단계: 이상치 정제(클리핑) 및 정제 파일 생성')
   df_processed = df.copy()
-  for col in num_cols:
+  for col in [
+      'Temperature',
+      'Humidity',
+      'SquareFootage',
+      'Occupancy',
+      'RenewableEnergy',
+      'EnergyConsumption',
+  ]:
     Q1 = df_processed[col].quantile(0.25)
     Q3 = df_processed[col].quantile(0.75)
     IQR = Q3 - Q1
@@ -113,103 +130,129 @@ try:
   st.markdown('---')
 
   # =====================================================================
-  # 4단계: 탐색적 데이터 분석(EDA) 및 독립변수 선정 근거 시각화
+  # 4단계: 9개 독립변수 전수 EDA 시각화 (핵심!)
   # =====================================================================
-  st.header(
-      '4단계: 탐색적 데이터 분석(EDA) 및 독립변수(9개) 선정 근거 시각화'
-  )
+  st.header('4단계: 독립변수 9개 전체에 대한 탐색적 분석(EDA) 및 시각화')
   st.write(
-      '정제된 데이터를 바탕으로, 왜 이 수치형·범주형 변수들을 독립변수로'
-      ' 채택했는지 시각화로 증명합니다.'
+      '모델에 투입할 **수치형 독립변수 5개**와 **범주형 독립변수 4개**가 타겟('
+      'EnergyConsumption)과 각각 어떤 관계를 가지는지 빠짐없이 검증합니다.'
   )
 
-  # 1. 수치형 관계 (산점도 + 추세선)
-  st.subheader('📈 1) 수치형 변수와 에너지 소비량의 관계 (산점도)')
-  col3, col4 = st.columns(2)
-  with col3:
-    st.write('**건물 면적 vs 에너지 소비량**')
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.scatterplot(
-        data=df_processed,
-        x='SquareFootage',
-        y='EnergyConsumption',
-        hue='Occupancy',
-        palette='viridis',
-        ax=ax,
-        alpha=0.7,
-    )
-    sns.regplot(
-        data=df_processed,
-        x='SquareFootage',
-        y='EnergyConsumption',
-        scatter=False,
-        ax=ax,
-        color='red',
-    )
-    st.pyplot(fig)
-    st.info('💡 면적이 넓을수록 에너지가 비례해서 증가하는 뚜렷한 양의 상관관계')
+  # --- [A] 수치형 독립변수 5개 시각화 (산점도 + 추세선) ---
+  st.subheader('📈 [수치형 독립변수 5개] vs 에너지 소비량 산점도')
+  numeric_features = [
+      'Temperature',
+      'Humidity',
+      'SquareFootage',
+      'Occupancy',
+      'RenewableEnergy',
+  ]
 
-  with col4:
-    st.write('**온도 vs 에너지 소비량**')
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.scatterplot(
-        data=df_processed,
-        x='Temperature',
-        y='EnergyConsumption',
-        hue='Humidity',
-        palette='coolwarm',
-        ax=ax,
-        alpha=0.7,
-    )
-    sns.regplot(
-        data=df_processed,
-        x='Temperature',
-        y='EnergyConsumption',
-        scatter=False,
-        ax=ax,
-        color='blue',
-    )
-    st.pyplot(fig)
-    st.info('💡 기온 변화에 따른 냉난방 부하(에너지 변동) 확인')
+  # 2개씩 컬럼 나누어 깔끔하게 배치
+  for i in range(0, len(numeric_features), 2):
+    c1, c2 = st.columns(2)
 
-  # 2. 범주형 관계 (막대그래프)
-  st.subheader('📊 2) 범주형 설비/일정 조건별 평균 에너지 소비량 (막대그래프)')
-  col5, col6 = st.columns(2)
-  with col5:
-    st.write('**냉난방기 가동 여부별 평균 에너지**')
-    fig, ax = plt.subplots(figsize=(6, 4))
-    hvac_mean = (
-        df_processed.groupby('HVACUsage')['EnergyConsumption']
-        .mean()
-        .reset_index()
-    )
-    sns.barplot(
-        data=hvac_mean, x='HVACUsage', y='EnergyConsumption', palette='Set2', ax=ax
-    )
-    st.pyplot(fig)
-    st.info('💡 냉난방기 가동 유무에 따라 에너지 소비량에 확연한 차이 발생')
+    with c1:
+      feat1 = numeric_features[i]
+      st.write(f'**{feat1} vs EnergyConsumption**')
+      fig, ax = plt.subplots(figsize=(6, 4))
+      sns.scatterplot(
+          data=df_processed,
+          x=feat1,
+          y='EnergyConsumption',
+          ax=ax,
+          alpha=0.6,
+          color='royalblue',
+      )
+      sns.regplot(
+          data=df_processed,
+          x=feat1,
+          y='EnergyConsumption',
+          scatter=False,
+          ax=ax,
+          color='red',
+      )
+      st.pyplot(fig)
 
-  with col6:
-    st.write('**휴일 여부별 평균 에너지**')
-    fig, ax = plt.subplots(figsize=(6, 4))
-    holiday_mean = (
-        df_processed.groupby('Holiday')['EnergyConsumption'].mean().reset_index()
-    )
-    sns.barplot(
-        data=holiday_mean,
-        x='Holiday',
-        y='EnergyConsumption',
-        palette='Pastel1',
-        ax=ax,
-    )
-    st.pyplot(fig)
-    st.info('💡 휴일에 따른 상주 인원 및 패턴 변화 반영')
+    with c2:
+      if i + 1 < len(numeric_features):
+        feat2 = numeric_features[i + 1]
+        st.write(f'**{feat2} vs EnergyConsumption**')
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.scatterplot(
+            data=df_processed,
+            x=feat2,
+            y='EnergyConsumption',
+            ax=ax,
+            alpha=0.6,
+            color='seagreen',
+        )
+        sns.regplot(
+            data=df_processed,
+            x=feat2,
+            y='EnergyConsumption',
+            scatter=False,
+            ax=ax,
+            color='red',
+        )
+        st.pyplot(fig)
 
-  # 3. 종합 히트맵
-  st.subheader('🔥 3) 수치형 변수 종합 상관관계 히트맵')
-  fig, ax = plt.subplots(figsize=(8, 4))
+  st.markdown('---')
+
+  # --- [B] 범주형 독립변수 4개 시각화 (막대그래프) ---
+  st.subheader('📊 [범주형 독립변수 4개]별 평균 에너지 소비량 (막대그래프)')
+  cat_features = ['HVACUsage', 'LightingUsage', 'DayOfWeek', 'Holiday']
+
+  for i in range(0, len(cat_features), 2):
+    c3, c4 = st.columns(2)
+
+    with c3:
+      cat1 = cat_features[i]
+      st.write(f'**{cat1}에 따른 평균 에너지 소비량**')
+      fig, ax = plt.subplots(figsize=(6, 4))
+      cat_mean = (
+          df_processed.groupby(cat1)['EnergyConsumption']
+          .mean()
+          .reset_index()
+      )
+      sns.barplot(
+          data=cat_mean, x=cat1, y='EnergyConsumption', palette='Set2', ax=ax
+      )
+      st.pyplot(fig)
+
+    with c4:
+      if i + 1 < len(cat_features):
+        cat2 = cat_features[i + 1]
+        st.write(f'**{cat2}에 따른 평균 에너지 소비량**')
+        fig, ax = plt.subplots(figsize=(6, 4))
+        cat_mean2 = (
+            df_processed.groupby(cat2)['EnergyConsumption']
+            .mean()
+            .reset_index()
+        )
+        sns.barplot(
+            data=cat_mean2,
+            x=cat2,
+            y='EnergyConsumption',
+            palette='Pastel1',
+            ax=ax,
+        )
+        st.pyplot(fig)
+
+  # --- [C] 수치형 변수 전체 상관관계 히트맵 ---
+  st.subheader('🔥 [종합] 수치형 변수 전체 상관관계 히트맵')
+  fig, ax = plt.subplots(figsize=(8, 5))
   sns.heatmap(
-      df_processed[num_cols].corr(),
+      df_processed[
+          [
+              'Temperature',
+              'Humidity',
+              'SquareFootage',
+              'Occupancy',
+              'RenewableEnergy',
+              'EnergyConsumption',
+          ]
+      ].corr(),
       annot=True,
       cmap='coolwarm',
       fmt='.2f',
