@@ -1,192 +1,225 @@
-import streamlit as st
-import pandas as pd
-
-# 웹앱 제목 설정
-st.title("⚡ 건물 에너지 데이터 전처리 - 1단계: 결측치 확인")
-st.write("업로드된 'Energy_consumption.csv' 파일에서 결측치(빈칸)를 확인합니다.")
-
-# 데이터 불러오기 (캐시 적용)
-@st.cache_data
-def load_data():
-    return pd.read_csv('Energy_consumption.csv')
-
-# 데이터 로드 시도
-try:
-    df = load_data()
-
-    # 1. 각 컬럼별 결측치 개수 계산 및 표 형태(DataFrame)로 변환
-    null_counts = df.isnull().sum().reset_index()
-    null_counts.columns = ['컬럼명', '결측치 개수']
-
-    # 2. 데이터셋 전체의 총 결측치 개수 계산
-    total_nulls = df.isnull().sum().sum()
-
-    # 3. 결과 출력
-    st.subheader("📊 컬럼별 결측치 현황 표")
-    st.dataframe(null_counts, use_container_width=True)
-
-    # 4. 전체 총 결측치 개수를 st.info 파란색 안내 박스로 출력
-    st.info(f"💡 데이터셋 내 총 결측치(빈칸) 개수는 **{total_nulls}개**입니다.")
-
-except FileNotFoundError:
-    st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
-
-
-import streamlit as st
-import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-
-# 페이지 설정
-st.set_page_config(
-    page_title="건물 에너지 데이터 - 이상치 확인",
-    page_icon="📊",
-    layout="wide"
-)
-
-st.title("📊 건물 에너지 데이터 전처리 - 2단계: 이상치 확인")
-st.write("IQR(사분위수 범위) 공식을 사용하여 각 변수별 이상치가 정확히 몇 개인지 수치로 확인합니다.")
-
-# 데이터 불러오기
-@st.cache_data
-def load_data():
-    return pd.read_csv('Energy_consumption.csv')
-
-try:
-    df = load_data()
-    num_cols = ['Temperature', 'Humidity', 'SquareFootage', 'Occupancy', 'EnergyConsumption']
-
-    # 1. IQR 기준으로 컬럼별 이상치 개수 정확히 계산하기
-    outlier_counts = {}
-    total_outliers = 0
-
-    for col in num_cols:
-        Q1 = df[col].quantile(0.25)
-        Q3 = df[col].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        
-        cond = (df[col] < lower_bound) | (df[col] > upper_bound)
-        cnt = cond.sum()
-        outlier_counts[col] = cnt
-        total_outliers += cnt
-
-    outlier_df = pd.DataFrame(list(outlier_counts.items()), columns=['컬럼명', '이상치 개수'])
-
-    # 2. 화면 출력 (표 + 안내 박스)
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.subheader("📋 컬럼별 이상치 개수 현황 표")
-        st.dataframe(outlier_df, use_container_width=True)
-    with col2:
-        st.subheader("💡 분석 의미 해석")
-        st.info(f"**전체 데이터 행 수**: {len(df)}개\n\n**총 이상치 개수**: **{total_outliers}개**\n\n👉 대부분의 데이터가 정제되어 있어 이상치가 거의 없는 안정적인 분포를 보입니다.")
-
-    # 3. 기술 통계량 표 (describe)
-    st.subheader("📈 주요 수치형 변수 통계 요약 표")
-    st.write("📌 **의미**: 최소값(`min`), 최대값(`max`), 그리고 중간값(`50%`)을 통해 데이터의 전반적인 중심 경향과 퍼져 있는 정도를 파악합니다.")
-    st.dataframe(df[num_cols].describe(), use_container_width=True)
-
-    # 4. 상자 그림(Boxplot) 시각화 출력
-    st.subheader("📦 주요 변수 상자 그림 (Boxplot)")
-    st.write("📌 **의미**: 박스 위아래로 뻗은 수염(Whiskers) 바깥쪽에 독립된 점으로 찍히는 값이 이상치입니다. 현재 그래프에서는 극단적으로 튀는 값 없이 상자 범위 내에 데이터가 잘 밀집해 있음을 시각적으로 확인할 수 있습니다.")
-    
-    fig, ax = plt.subplots(figsize=(10, 4))
-    sns.boxplot(data=df[['Temperature', 'Humidity', 'Occupancy']], ax=ax, palette="Set2")
-    plt.title("Boxplot for Outlier Detection")
-    st.pyplot(fig)
-
-except FileNotFoundError:
-    st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
-
-
-import streamlit as st
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
+import streamlit as st
 
 # 페이지 설정
 st.set_page_config(
-    page_title="건물 에너지 데이터 - 이상치 해결",
-    page_icon="✨",
-    layout="wide"
+    page_title="건물 에너지 데이터 - 전처리 및 EDA 앱",
+    page_icon="🧹",
+    layout="wide",
 )
 
-st.title("✨ 건물 에너지 데이터 전처리 - 3단계: 이상치 해결")
-st.write("IQR(사분위수 범위) 기준을 벗어난 이상치(1개)를 정상 범위 경계값으로 다듬는 클리핑(Clipping)을 수행합니다.")
+# 한글 폰트 및 마이너스 기호 깨짐 방지
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['axes.unicode_minus'] = False
 
-# 데이터 불러오기
+st.title('🧹 건물 에너지 데이터 전처리 및 탐색적 분석(EDA) 웹앱')
+st.write(
+    '결측치 확인, IQR 이상치 정제, 그리고 독립변수 9개를 선정하기 위한 시각화(산점도,'
+    ' 막대그래프, 히트맵)를 수행합니다.'
+)
+
+
 @st.cache_data
 def load_data():
-    return pd.read_csv('Energy_consumption.csv')
+  return pd.read_csv('Energy_consumption.csv')
+
 
 try:
-    df = load_data()
-    num_cols = ['Temperature', 'Humidity', 'SquareFootage', 'Occupancy', 'EnergyConsumption']
+  df = load_data()
+  num_cols = [
+      'Temperature',
+      'Humidity',
+      'SquareFootage',
+      'Occupancy',
+      'EnergyConsumption',
+  ]
+  cat_cols = ['HVACUsage', 'LightingUsage', 'DayOfWeek', 'Holiday']
 
-    # 1단계: 정제 전 이상치 개수 파악
-    before_outliers = 0
-    for col in num_cols:
-        Q1 = df[col].quantile(0.25)
-        Q3 = df[col].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        before_outliers += ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
+  # =====================================================================
+  # 1단계: 결측치 확인
+  # =====================================================================
+  st.header('1단계: 결측치(Missing Value) 확인')
+  null_counts = df.isnull().sum().reset_index()
+  null_counts.columns = ['컬럼명', '결측치 개수']
+  total_nulls = df.isnull().sum().sum()
 
-    # 2단계: IQR 클리핑 적용 (이상치 해결)
-    df_processed = df.copy()
-    for col in num_cols:
-        Q1 = df_processed[col].quantile(0.25)
-        Q3 = df_processed[col].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        df_processed[col] = np.clip(df_processed[col], lower_bound, upper_bound)
+  st.dataframe(null_counts, use_container_width=True)
+  st.info(f'💡 데이터셋 내 총 결측치 개수는 **{total_nulls}개**입니다.')
 
-    # 3단계: 정제 후 이상치 개수 재확인 (0개 확인용)
-    after_outliers = 0
-    for col in num_cols:
-        Q1 = df_processed[col].quantile(0.25)
-        Q3 = df_processed[col].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        after_outliers += ((df_processed[col] < lower_bound) | (df_processed[col] > upper_bound)).sum()
+  st.markdown('---')
 
-    # 화면 출력 (성공 메시지 및 비교 통계)
-    st.success("🎉 이상치 정제(IQR Clipping)가 성공적으로 완료되었습니다!")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(f"📌 **정제 전 이상치 총합**: **{before_outliers}개** (EnergyConsumption 1개 포함)")
-    with col2:
-        st.info(f"📌 **정제 후 이상치 총합**: **{after_outliers}개** (정상 범위로 완벽 교정됨)")
+  # =====================================================================
+  # 2단계: 이상치 분석 및 Boxplot 시각화
+  # =====================================================================
+  st.header('2단계: 이상치(Outlier) 분석 및 상자 그림(Boxplot)')
+  outlier_counts = {}
+  total_outliers = 0
 
-    # 🌟 추가된 기능: 정제된 데이터 파일 다운로드 버튼
-    st.markdown("---")
-    st.subheader("💾 전처리 완료된 데이터 파일 다운로드")
-    st.write("📌 **의미**: 이상치가 정상 범위로 클리핑된 최종 데이터셋을 CSV 파일로 다운로드하여 향후 분석에 활용할 수 있습니다.")
-    
-    # DataFrame을 CSV 문자열로 변환 (한글 깨짐 방지를 위해 utf-8-sig 사용)
-    csv_data = df_processed.to_csv(index=False).encode('utf-8-sig')
-    
-    st.download_button(
-        label="📥 정제된 데이터(Energy_consumption_cleaned.csv) 다운로드",
-        data=csv_data,
-        file_name="Energy_consumption_cleaned.csv",
-        mime="text/csv",
+  for col in num_cols:
+    Q1 = df[col].quantile(0.25)
+    Q3 = df[col].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    cnt = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
+    outlier_counts[col] = cnt
+    total_outliers += cnt
+
+  outlier_df = pd.DataFrame(
+      list(outlier_counts.items()), columns=['컬럼명', '이상치 개수']
+  )
+
+  col1, col2 = st.columns([2, 1])
+  with col1:
+    st.dataframe(outlier_df, use_container_width=True)
+  with col2:
+    st.info(f'📌 **총 이상치 개수**: **{total_outliers}개**')
+
+  st.subheader('📦 수치형 변수 Boxplot 시각화')
+  fig, ax = plt.subplots(figsize=(10, 4))
+  sns.boxplot(
+      data=df[['Temperature', 'Humidity', 'Occupancy']], ax=ax, palette='Set2'
+  )
+  st.pyplot(fig)
+
+  st.markdown('---')
+
+  # =====================================================================
+  # 3단계: 이상치 정제(클리핑) 및 파일 다운로드
+  # =====================================================================
+  st.header('3단계: 이상치 정제(클리핑) 및 정제 파일 생성')
+  df_processed = df.copy()
+  for col in num_cols:
+    Q1 = df_processed[col].quantile(0.25)
+    Q3 = df_processed[col].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    df_processed[col] = np.clip(df_processed[col], lower_bound, upper_bound)
+
+  st.success('🎉 IQR 클리핑을 통한 이상치 정제가 완료되었습니다!')
+
+  csv_data = df_processed.to_csv(index=False).encode('utf-8-sig')
+  st.download_button(
+      label='📥 정제된 데이터(Energy_consumption_cleaned.csv) 다운로드',
+      data=csv_data,
+      file_name='Energy_consumption_cleaned.csv',
+      mime='text/csv',
+  )
+
+  st.markdown('---')
+
+  # =====================================================================
+  # 4단계: 탐색적 데이터 분석(EDA) 및 독립변수 선정 근거 시각화
+  # =====================================================================
+  st.header(
+      '4단계: 탐색적 데이터 분석(EDA) 및 독립변수(9개) 선정 근거 시각화'
+  )
+  st.write(
+      '정제된 데이터를 바탕으로, 왜 이 수치형·범주형 변수들을 독립변수로'
+      ' 채택했는지 시각화로 증명합니다.'
+  )
+
+  # 1. 수치형 관계 (산점도 + 추세선)
+  st.subheader('📈 1) 수치형 변수와 에너지 소비량의 관계 (산점도)')
+  col3, col4 = st.columns(2)
+  with col3:
+    st.write('**건물 면적 vs 에너지 소비량**')
+    fig, ax = plt.subplots(figsize=(6, 4))
+    sns.scatterplot(
+        data=df_processed,
+        x='SquareFootage',
+        y='EnergyConsumption',
+        hue='Occupancy',
+        palette='viridis',
+        ax=ax,
+        alpha=0.7,
     )
-    st.markdown("---")
+    sns.regplot(
+        data=df_processed,
+        x='SquareFootage',
+        y='EnergyConsumption',
+        scatter=False,
+        ax=ax,
+        color='red',
+    )
+    st.pyplot(fig)
+    st.info('💡 면적이 넓을수록 에너지가 비례해서 증가하는 뚜렷한 양의 상관관계')
 
-    st.subheader("📋 이상치가 정제된 최종 데이터 통계 요약")
-    st.write("📌 **의미**: 클리핑을 통해 극단적인 값이 상·하한 경계값으로 조정되어, 데이터의 안정성이 높아진 것을 통계량(`min`, `max`)을 통해 확인할 수 있습니다.")
-    st.dataframe(df_processed[num_cols].describe(), use_container_width=True)
+  with col4:
+    st.write('**온도 vs 에너지 소비량**')
+    fig, ax = plt.subplots(figsize=(6, 4))
+    sns.scatterplot(
+        data=df_processed,
+        x='Temperature',
+        y='EnergyConsumption',
+        hue='Humidity',
+        palette='coolwarm',
+        ax=ax,
+        alpha=0.7,
+    )
+    sns.regplot(
+        data=df_processed,
+        x='Temperature',
+        y='EnergyConsumption',
+        scatter=False,
+        ax=ax,
+        color='blue',
+    )
+    st.pyplot(fig)
+    st.info('💡 기온 변화에 따른 냉난방 부하(에너지 변동) 확인')
 
-    st.subheader("📋 최종 정제된 데이터프레임 (상위 5개 행)")
-    st.dataframe(df_processed.head(), use_container_width=True)
+  # 2. 범주형 관계 (막대그래프)
+  st.subheader('📊 2) 범주형 설비/일정 조건별 평균 에너지 소비량 (막대그래프)')
+  col5, col6 = st.columns(2)
+  with col5:
+    st.write('**냉난방기 가동 여부별 평균 에너지**')
+    fig, ax = plt.subplots(figsize=(6, 4))
+    hvac_mean = (
+        df_processed.groupby('HVACUsage')['EnergyConsumption']
+        .mean()
+        .reset_index()
+    )
+    sns.barplot(
+        data=hvac_mean, x='HVACUsage', y='EnergyConsumption', palette='Set2', ax=ax
+    )
+    st.pyplot(fig)
+    st.info('💡 냉난방기 가동 유무에 따라 에너지 소비량에 확연한 차이 발생')
+
+  with col6:
+    st.write('**휴일 여부별 평균 에너지**')
+    fig, ax = plt.subplots(figsize=(6, 4))
+    holiday_mean = (
+        df_processed.groupby('Holiday')['EnergyConsumption'].mean().reset_index()
+    )
+    sns.barplot(
+        data=holiday_mean,
+        x='Holiday',
+        y='EnergyConsumption',
+        palette='Pastel1',
+        ax=ax,
+    )
+    st.pyplot(fig)
+    st.info('💡 휴일에 따른 상주 인원 및 패턴 변화 반영')
+
+  # 3. 종합 히트맵
+  st.subheader('🔥 3) 수치형 변수 종합 상관관계 히트맵')
+  fig, ax = plt.subplots(figsize=(8, 4))
+  sns.heatmap(
+      df_processed[num_cols].corr(),
+      annot=True,
+      cmap='coolwarm',
+      fmt='.2f',
+      ax=ax,
+      linewidths=0.5,
+  )
+  st.pyplot(fig)
 
 except FileNotFoundError:
-    st.error("⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 동일한 폴더에 파일이 위치해 있는지 확인해 주세요.")
+  st.error(
+      "⚠️ 'Energy_consumption.csv' 파일을 찾을 수 없습니다. 폴더 위치를"
+      ' 확인해주세요.'
+  )
